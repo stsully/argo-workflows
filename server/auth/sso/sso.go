@@ -12,7 +12,7 @@ import (
 	"time"
 
 	pkgrand "github.com/argoproj/pkg/rand"
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2"
