@@ -577,6 +577,26 @@ spec:
                                 objectLocking:
                                   type: boolean
                               type: object
+                            encryptionOptions:
+                              properties:
+                                enableEncryption:
+                                  type: boolean
+                                kmsEncryptionContext:
+                                  type: string
+                                kmsKeyId:
+                                  type: string
+                                serverSideCustomerKeySecret:
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                    optional:
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                              type: object
                             endpoint:
                               type: string
                             insecure:
@@ -624,6 +644,17 @@ spec:
                           type: string
                         valueFrom:
                           properties:
+                            configMapKeyRef:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                                optional:
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
                             default:
                               type: string
                             event:
@@ -1499,6 +1530,26 @@ spec:
                             properties:
                               objectLocking:
                                 type: boolean
+                            type: object
+                          encryptionOptions:
+                            properties:
+                              enableEncryption:
+                                type: boolean
+                              kmsEncryptionContext:
+                                type: string
+                              kmsKeyId:
+                                type: string
+                              serverSideCustomerKeySecret:
+                                properties:
+                                  key:
+                                    type: string
+                                  name:
+                                    type: string
+                                  optional:
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
                             type: object
                           endpoint:
                             type: string
@@ -2942,6 +2993,26 @@ spec:
                                               objectLocking:
                                                 type: boolean
                                             type: object
+                                          encryptionOptions:
+                                            properties:
+                                              enableEncryption:
+                                                type: boolean
+                                              kmsEncryptionContext:
+                                                type: string
+                                              kmsKeyId:
+                                                type: string
+                                              serverSideCustomerKeySecret:
+                                                properties:
+                                                  key:
+                                                    type: string
+                                                  name:
+                                                    type: string
+                                                  optional:
+                                                    type: boolean
+                                                required:
+                                                - key
+                                                type: object
+                                            type: object
                                           endpoint:
                                             type: string
                                           insecure:
@@ -2989,6 +3060,17 @@ spec:
                                         type: string
                                       valueFrom:
                                         properties:
+                                          configMapKeyRef:
+                                            properties:
+                                              key:
+                                                type: string
+                                              name:
+                                                type: string
+                                              optional:
+                                                type: boolean
+                                            required:
+                                            - key
+                                            type: object
                                           default:
                                             type: string
                                           event:
@@ -3312,6 +3394,26 @@ spec:
                                                     objectLocking:
                                                       type: boolean
                                                   type: object
+                                                encryptionOptions:
+                                                  properties:
+                                                    enableEncryption:
+                                                      type: boolean
+                                                    kmsEncryptionContext:
+                                                      type: string
+                                                    kmsKeyId:
+                                                      type: string
+                                                    serverSideCustomerKeySecret:
+                                                      properties:
+                                                        key:
+                                                          type: string
+                                                        name:
+                                                          type: string
+                                                        optional:
+                                                          type: boolean
+                                                      required:
+                                                      - key
+                                                      type: object
+                                                  type: object
                                                 endpoint:
                                                   type: string
                                                 insecure:
@@ -3359,6 +3461,17 @@ spec:
                                               type: string
                                             valueFrom:
                                               properties:
+                                                configMapKeyRef:
+                                                  properties:
+                                                    key:
+                                                      type: string
+                                                    name:
+                                                      type: string
+                                                    optional:
+                                                      type: boolean
+                                                  required:
+                                                  - key
+                                                  type: object
                                                 default:
                                                   type: string
                                                 event:
@@ -3387,6 +3500,7 @@ spec:
                                 - template
                                 type: object
                               type: object
+                            inline: {}
                             name:
                               type: string
                             onExit:
@@ -3722,6 +3836,26 @@ spec:
                                     properties:
                                       objectLocking:
                                         type: boolean
+                                    type: object
+                                  encryptionOptions:
+                                    properties:
+                                      enableEncryption:
+                                        type: boolean
+                                      kmsEncryptionContext:
+                                        type: string
+                                      kmsKeyId:
+                                        type: string
+                                      serverSideCustomerKeySecret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
                                     type: object
                                   endpoint:
                                     type: string
@@ -4657,6 +4791,26 @@ spec:
                                     objectLocking:
                                       type: boolean
                                   type: object
+                                encryptionOptions:
+                                  properties:
+                                    enableEncryption:
+                                      type: boolean
+                                    kmsEncryptionContext:
+                                      type: string
+                                    kmsKeyId:
+                                      type: string
+                                    serverSideCustomerKeySecret:
+                                      properties:
+                                        key:
+                                          type: string
+                                        name:
+                                          type: string
+                                        optional:
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                  type: object
                                 endpoint:
                                   type: string
                                 insecure:
@@ -4704,6 +4858,17 @@ spec:
                               type: string
                             valueFrom:
                               properties:
+                                configMapKeyRef:
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                    optional:
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
                                 default:
                                   type: string
                                 event:
@@ -5115,6 +5280,26 @@ spec:
                                     objectLocking:
                                       type: boolean
                                   type: object
+                                encryptionOptions:
+                                  properties:
+                                    enableEncryption:
+                                      type: boolean
+                                    kmsEncryptionContext:
+                                      type: string
+                                    kmsKeyId:
+                                      type: string
+                                    serverSideCustomerKeySecret:
+                                      properties:
+                                        key:
+                                          type: string
+                                        name:
+                                          type: string
+                                        optional:
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                  type: object
                                 endpoint:
                                   type: string
                                 insecure:
@@ -5164,6 +5349,17 @@ spec:
                               type: string
                             valueFrom:
                               properties:
+                                configMapKeyRef:
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                    optional:
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
                                 default:
                                   type: string
                                 event:
@@ -7651,6 +7847,26 @@ spec:
                                 objectLocking:
                                   type: boolean
                               type: object
+                            encryptionOptions:
+                              properties:
+                                enableEncryption:
+                                  type: boolean
+                                kmsEncryptionContext:
+                                  type: string
+                                kmsKeyId:
+                                  type: string
+                                serverSideCustomerKeySecret:
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                    optional:
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                              type: object
                             endpoint:
                               type: string
                             insecure:
@@ -9093,6 +9309,26 @@ spec:
                                                 objectLocking:
                                                   type: boolean
                                               type: object
+                                            encryptionOptions:
+                                              properties:
+                                                enableEncryption:
+                                                  type: boolean
+                                                kmsEncryptionContext:
+                                                  type: string
+                                                kmsKeyId:
+                                                  type: string
+                                                serverSideCustomerKeySecret:
+                                                  properties:
+                                                    key:
+                                                      type: string
+                                                    name:
+                                                      type: string
+                                                    optional:
+                                                      type: boolean
+                                                  required:
+                                                  - key
+                                                  type: object
+                                              type: object
                                             endpoint:
                                               type: string
                                             insecure:
@@ -9140,6 +9376,17 @@ spec:
                                           type: string
                                         valueFrom:
                                           properties:
+                                            configMapKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                              required:
+                                              - key
+                                              type: object
                                             default:
                                               type: string
                                             event:
@@ -9463,6 +9710,26 @@ spec:
                                                       objectLocking:
                                                         type: boolean
                                                     type: object
+                                                  encryptionOptions:
+                                                    properties:
+                                                      enableEncryption:
+                                                        type: boolean
+                                                      kmsEncryptionContext:
+                                                        type: string
+                                                      kmsKeyId:
+                                                        type: string
+                                                      serverSideCustomerKeySecret:
+                                                        properties:
+                                                          key:
+                                                            type: string
+                                                          name:
+                                                            type: string
+                                                          optional:
+                                                            type: boolean
+                                                        required:
+                                                        - key
+                                                        type: object
+                                                    type: object
                                                   endpoint:
                                                     type: string
                                                   insecure:
@@ -9510,6 +9777,17 @@ spec:
                                                 type: string
                                               valueFrom:
                                                 properties:
+                                                  configMapKeyRef:
+                                                    properties:
+                                                      key:
+                                                        type: string
+                                                      name:
+                                                        type: string
+                                                      optional:
+                                                        type: boolean
+                                                    required:
+                                                    - key
+                                                    type: object
                                                   default:
                                                     type: string
                                                   event:
@@ -9538,6 +9816,7 @@ spec:
                                   - template
                                   type: object
                                 type: object
+                              inline: {}
                               name:
                                 type: string
                               onExit:
@@ -9873,6 +10152,26 @@ spec:
                                       properties:
                                         objectLocking:
                                           type: boolean
+                                      type: object
+                                    encryptionOptions:
+                                      properties:
+                                        enableEncryption:
+                                          type: boolean
+                                        kmsEncryptionContext:
+                                          type: string
+                                        kmsKeyId:
+                                          type: string
+                                        serverSideCustomerKeySecret:
+                                          properties:
+                                            key:
+                                              type: string
+                                            name:
+                                              type: string
+                                            optional:
+                                              type: boolean
+                                          required:
+                                          - key
+                                          type: object
                                       type: object
                                     endpoint:
                                       type: string
@@ -10808,6 +11107,26 @@ spec:
                                       objectLocking:
                                         type: boolean
                                     type: object
+                                  encryptionOptions:
+                                    properties:
+                                      enableEncryption:
+                                        type: boolean
+                                      kmsEncryptionContext:
+                                        type: string
+                                      kmsKeyId:
+                                        type: string
+                                      serverSideCustomerKeySecret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
                                   endpoint:
                                     type: string
                                   insecure:
@@ -10855,6 +11174,17 @@ spec:
                                 type: string
                               valueFrom:
                                 properties:
+                                  configMapKeyRef:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
                                   default:
                                     type: string
                                   event:
@@ -11266,6 +11596,26 @@ spec:
                                       objectLocking:
                                         type: boolean
                                     type: object
+                                  encryptionOptions:
+                                    properties:
+                                      enableEncryption:
+                                        type: boolean
+                                      kmsEncryptionContext:
+                                        type: string
+                                      kmsKeyId:
+                                        type: string
+                                      serverSideCustomerKeySecret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
                                   endpoint:
                                     type: string
                                   insecure:
@@ -11315,6 +11665,17 @@ spec:
                                 type: string
                               valueFrom:
                                 properties:
+                                  configMapKeyRef:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
                                   default:
                                     type: string
                                   event:

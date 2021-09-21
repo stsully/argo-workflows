@@ -53,6 +53,8 @@ type sso struct {
 	encrypter       jose.Encrypter
 	rbacConfig      *rbac.Config
 	expiry          time.Duration
+	customClaimName string
+	userInfoPath    string
 }
 
 func (s *sso) IsRBACEnabled() bool {
@@ -68,6 +70,9 @@ type Config struct {
 	// additional scopes (on top of "openid")
 	Scopes        []string        `json:"scopes,omitempty"`
 	SessionExpiry metav1.Duration `json:"sessionExpiry,omitempty"`
+	// customGroupClaimName will override the groups claim name
+	CustomGroupClaimName string `json:"customGroupClaimName,omitempty"`
+	UserInfoPath         string `json:"userInfoPath,omitempty"`
 }
 
 func (c Config) GetSessionExpiry() time.Duration {
@@ -184,12 +189,19 @@ func newSso(
 		encrypter:       encrypter,
 		rbacConfig:      c.RBAC,
 		expiry:          c.GetSessionExpiry(),
+		customClaimName: c.CustomGroupClaimName,
+		userInfoPath:    c.UserInfoPath,
 	}, nil
 }
 
 func (s *sso) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	redirectUrl := r.URL.Query().Get("redirect")
-	state := pkgrand.RandString(10)
+	state, err := pkgrand.RandString(10)
+	if err != nil {
+		log.WithError(err).Error("failed to create state")
+		w.WriteHeader(500)
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     state,
 		Value:    redirectUrl,
@@ -238,20 +250,48 @@ func (s *sso) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("failed to get claims: %v", err)))
 		return
 	}
+
+	// Default to groups claim but if customClaimName is set
+	// extract groups based on that claim key
+	groups := c.Groups
+	if s.customClaimName != "" {
+		groups, err = c.GetCustomGroup(s.customClaimName)
+		if err != nil {
+			w.WriteHeader(401)
+			_, _ = w.Write([]byte(fmt.Sprintf("failed to get custom claim: %v", err)))
+			return
+		}
+	}
+
+	// Some SSO implementations (Okta) require a call to
+	// the OIDC user info path to get attributes like groups
+	if s.userInfoPath != "" {
+		groups, err = c.GetUserInfoGroups(oauth2Token.AccessToken, c.Issuer, s.userInfoPath)
+		if err != nil {
+			w.WriteHeader(401)
+			_, _ = w.Write([]byte(fmt.Sprintf("failed to get groups claim: %v", err)))
+			return
+		}
+	}
+
 	argoClaims := &types.Claims{
 		Claims: jwt.Claims{
 			Issuer:  issuer,
 			Subject: c.Subject,
 			Expiry:  jwt.NewNumericDate(time.Now().Add(s.expiry)),
 		},
-		Groups:             c.Groups,
+		Groups:             groups,
+		RawClaim:           c.RawClaim,
 		Email:              c.Email,
 		EmailVerified:      c.EmailVerified,
 		ServiceAccountName: c.ServiceAccountName,
 	}
+
 	raw, err := jwt.Encrypted(s.encrypter).Claims(argoClaims).CompactSerialize()
 	if err != nil {
-		panic(err)
+		w.WriteHeader(401)
+		_, _ = w.Write([]byte(fmt.Sprintf("failed to encode claims: %v", err)))
+		return
 	}
 	value := Prefix + raw
 	log.Debugf("handing oauth2 callback %v", value)
@@ -287,9 +327,11 @@ func (s *sso) Authorize(authorization string) (*types.Claims, error) {
 	if err := tok.Claims(s.privateKey, c); err != nil {
 		return nil, fmt.Errorf("failed to parse claims: %v", err)
 	}
+
 	if err := c.Validate(jwt.Expected{Issuer: issuer}); err != nil {
 		return nil, fmt.Errorf("failed to validate claims: %v", err)
 	}
+
 	return c, nil
 }
 

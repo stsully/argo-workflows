@@ -18,6 +18,7 @@ import (
 	"github.com/argoproj/argo-workflows/v3/test/util"
 	armocks "github.com/argoproj/argo-workflows/v3/workflow/artifactrepositories/mocks"
 	"github.com/argoproj/argo-workflows/v3/workflow/common"
+	wfutil "github.com/argoproj/argo-workflows/v3/workflow/util"
 )
 
 // Deprecated
@@ -38,6 +39,28 @@ func newWoc(wfs ...wfv1.Workflow) *wfOperationCtx {
 	woc := newWorkflowOperationCtx(wf, controller)
 	return woc
 }
+
+var scriptWf = `
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: hello-world
+spec:
+  entrypoint: whalesay
+  templates:
+  - name: script-with-input-artifact
+    inputs:
+      artifacts:
+      - name: kubectl
+        path: /bin/kubectl
+        http:
+          url: https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kubectl
+    script:
+      image: alpine:latest
+      command: [sh]
+      source: |
+        ls /bin/kubectl
+`
 
 var scriptTemplateWithInputArtifact = `
 name: script-with-input-artifact
@@ -1287,6 +1310,22 @@ func TestMainContainerCustomization(t *testing.T) {
 	}
 	pod, _ = woc.createWorkflowPod(ctx, wf.Name, []apiv1.Container{*mainCtr}, &wf.Spec.Templates[0], &createWorkflowPodOpts{})
 	assert.Equal(t, "0.100", pod.Spec.Containers[1].Resources.Limits.Cpu().AsDec().String())
+
+	// If script template has limits then they take precedence over config in controller
+	wf = wfv1.MustUnmarshalWorkflow(scriptWf)
+	woc = newWoc(*wf)
+	woc.controller.Config.MainContainer = mainCtrSpec
+	mainCtr = &woc.execWf.Spec.Templates[0].Script.Container
+	wf.Spec.Templates[0].Script.Container.Resources = apiv1.ResourceRequirements{
+		Limits: apiv1.ResourceList{
+			apiv1.ResourceCPU:    resource.MustParse("1"),
+			apiv1.ResourceMemory: resource.MustParse("123Mi"),
+		},
+	}
+	pod, _ = woc.createWorkflowPod(ctx, wf.Name, []apiv1.Container{*mainCtr}, &wf.Spec.Templates[0], &createWorkflowPodOpts{})
+	assert.Equal(t, "1", pod.Spec.Containers[1].Resources.Limits.Cpu().AsDec().String())
+	assert.Equal(t, "128974848", pod.Spec.Containers[1].Resources.Limits.Memory().AsDec().String())
+
 }
 
 func TestIsResourcesSpecified(t *testing.T) {
@@ -1349,6 +1388,54 @@ func TestHybridWfVolumesWindows(t *testing.T) {
 	assert.Equal(t, "\\\\.\\pipe\\docker_engine", pod.Spec.Containers[0].VolumeMounts[0].MountPath)
 	assert.Equal(t, false, pod.Spec.Containers[0].VolumeMounts[0].ReadOnly)
 	assert.Equal(t, (*apiv1.HostPathType)(nil), pod.Spec.Volumes[0].HostPath.Type)
+}
+
+func TestWindowsUNCPathsAreRemoved(t *testing.T) {
+	wf := wfv1.MustUnmarshalWorkflow(helloWindowsWf)
+	uncVolume := apiv1.Volume{
+		Name: "unc",
+		VolumeSource: apiv1.VolumeSource{
+			HostPath: &apiv1.HostPathVolumeSource{
+				Path: "\\\\.\\pipe\\test",
+			},
+		},
+	}
+	uncMount := apiv1.VolumeMount{
+		Name:      "unc",
+		MountPath: "\\\\.\\pipe\\test",
+	}
+
+	// Add artifacts so that initContainer volumeMount logic is run
+	inp := wfv1.Artifact{
+		Name: "kubectl",
+		Path: "C:\\kubectl",
+		ArtifactLocation: wfv1.ArtifactLocation{HTTP: &wfv1.HTTPArtifact{
+			URL: "https://dl.k8s.io/release/v1.22.0/bin/windows/amd64/kubectl.exe"},
+		},
+	}
+	wf.Spec.Volumes = append(wf.Spec.Volumes, uncVolume)
+	wf.Spec.Templates[0].Container.VolumeMounts = append(wf.Spec.Templates[0].Container.VolumeMounts, uncMount)
+	wf.Spec.Templates[0].Inputs.Artifacts = append(wf.Spec.Templates[0].Inputs.Artifacts, inp)
+	woc := newWoc(*wf)
+
+	ctx := context.Background()
+	mainCtr := woc.execWf.Spec.Templates[0].Container
+	pod, _ := woc.createWorkflowPod(ctx, wf.Name, []apiv1.Container{*mainCtr}, &wf.Spec.Templates[0], &createWorkflowPodOpts{})
+	waitCtrIdx, err := wfutil.FindWaitCtrIndex(pod)
+
+	if err != nil {
+		assert.Errorf(t, err, "could not find wait ctr index")
+	}
+	for _, mnt := range pod.Spec.Containers[waitCtrIdx].VolumeMounts {
+		assert.NotEqual(t, mnt.Name, "unc")
+	}
+	for _, initCtr := range pod.Spec.InitContainers {
+		if initCtr.Name == common.InitContainerName {
+			for _, mnt := range initCtr.VolumeMounts {
+				assert.NotEqual(t, mnt.Name, "unc")
+			}
+		}
+	}
 }
 
 func TestHybridWfVolumesLinux(t *testing.T) {
@@ -1474,4 +1561,85 @@ func TestGetDeadline(t *testing.T) {
 	pod, _ = woc.createWorkflowPod(ctx, wf.Name, []apiv1.Container{*mainCtr}, &wf.Spec.Templates[0], &createWorkflowPodOpts{executionDeadline: executionDeadline})
 	deadline, _ = getPodDeadline(pod)
 	assert.Equal(t, executionDeadline.Format(time.RFC3339), deadline.Format(time.RFC3339))
+}
+
+func TestPodMetadataWithWorkflowDefaults(t *testing.T) {
+	cancel, controller := newController()
+	defer cancel()
+
+	wfDefaultAnnotations := make(map[string]string)
+	wfDefaultAnnotations["controller-level-pod-annotation"] = "annotation-value"
+	wfDefaultAnnotations["workflow-level-pod-annotation"] = "set-by-controller"
+	wfDefaultLabels := make(map[string]string)
+	wfDefaultLabels["controller-level-pod-label"] = "label-value"
+	wfDefaultLabels["workflow-level-pod-label"] = "set-by-controller"
+	controller.Config.WorkflowDefaults = &wfv1.Workflow{
+		Spec: wfv1.WorkflowSpec{
+			PodMetadata: &wfv1.Metadata{
+				Annotations: wfDefaultAnnotations,
+				Labels:      wfDefaultLabels,
+			},
+		},
+	}
+
+	wf := wfv1.MustUnmarshalWorkflow(helloWorldWf)
+	ctx := context.Background()
+	woc := newWorkflowOperationCtx(wf, controller)
+	err := woc.setExecWorkflow(ctx)
+	assert.NoError(t, err)
+	mainCtr := woc.execWf.Spec.Templates[0].Container
+	pod, _ := woc.createWorkflowPod(ctx, wf.Name, []apiv1.Container{*mainCtr}, &wf.Spec.Templates[0], &createWorkflowPodOpts{})
+	assert.Equal(t, "annotation-value", pod.ObjectMeta.Annotations["controller-level-pod-annotation"])
+	assert.Equal(t, "set-by-controller", pod.ObjectMeta.Annotations["workflow-level-pod-annotation"])
+	assert.Equal(t, "label-value", pod.ObjectMeta.Labels["controller-level-pod-label"])
+	assert.Equal(t, "set-by-controller", pod.ObjectMeta.Labels["workflow-level-pod-label"])
+	cancel() // need to cancel to spin up pods with the same name
+
+	cancel, controller = newController()
+	defer cancel()
+	controller.Config.WorkflowDefaults = &wfv1.Workflow{
+		Spec: wfv1.WorkflowSpec{
+			PodMetadata: &wfv1.Metadata{
+				Annotations: wfDefaultAnnotations,
+				Labels:      wfDefaultLabels,
+			},
+		},
+	}
+	wf = wfv1.MustUnmarshalWorkflow(wfWithPodMetadata)
+	ctx = context.Background()
+	woc = newWorkflowOperationCtx(wf, controller)
+	err = woc.setExecWorkflow(ctx)
+	assert.NoError(t, err)
+	mainCtr = woc.execWf.Spec.Templates[0].Container
+	pod, _ = woc.createWorkflowPod(ctx, wf.Name, []apiv1.Container{*mainCtr}, &wf.Spec.Templates[0], &createWorkflowPodOpts{})
+	assert.Equal(t, "foo", pod.ObjectMeta.Annotations["workflow-level-pod-annotation"])
+	assert.Equal(t, "bar", pod.ObjectMeta.Labels["workflow-level-pod-label"])
+	assert.Equal(t, "annotation-value", pod.ObjectMeta.Annotations["controller-level-pod-annotation"])
+	assert.Equal(t, "label-value", pod.ObjectMeta.Labels["controller-level-pod-label"])
+	cancel()
+}
+
+func TestPodExists(t *testing.T) {
+	cancel, controller := newController()
+	defer cancel()
+
+	wf := wfv1.MustUnmarshalWorkflow(helloWorldWf)
+	ctx := context.Background()
+	woc := newWorkflowOperationCtx(wf, controller)
+	err := woc.setExecWorkflow(ctx)
+	assert.NoError(t, err)
+	mainCtr := woc.execWf.Spec.Templates[0].Container
+	pod, err := woc.createWorkflowPod(ctx, wf.Name, []apiv1.Container{*mainCtr}, &wf.Spec.Templates[0], &createWorkflowPodOpts{})
+	assert.NoError(t, err)
+	assert.NotNil(t, pod)
+
+	pods, err := listPods(woc)
+	assert.NoError(t, err)
+	assert.Len(t, pods.Items, 1)
+
+	existingPod, doesExist, err := woc.podExists(pod.ObjectMeta.Name)
+	assert.NoError(t, err)
+	assert.NotNil(t, existingPod)
+	assert.True(t, doesExist)
+	assert.EqualValues(t, pod, existingPod)
 }

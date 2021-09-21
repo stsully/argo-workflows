@@ -60,6 +60,7 @@ func NewRootCommand() *cobra.Command {
 		},
 	}
 
+	command.AddCommand(NewAgentCommand())
 	command.AddCommand(NewEmissaryCommand())
 	command.AddCommand(NewInitCommand())
 	command.AddCommand(NewResourceCommand())
@@ -106,6 +107,7 @@ func initExecutor() *executor.WorkflowExecutor {
 	checkErr(err)
 
 	var cre executor.ContainerRuntimeExecutor
+	log.Infof("Creating a %s executor", executorType)
 	switch executorType {
 	case common.ContainerRuntimeExecutorK8sAPI:
 		cre = k8sapi.NewK8sAPIExecutor(clientset, config, podName, namespace)
@@ -121,6 +123,7 @@ func initExecutor() *executor.WorkflowExecutor {
 	checkErr(err)
 
 	wfExecutor := executor.NewExecutor(clientset, restClient, podName, namespace, cre, *tmpl, includeScriptOutput, deadline)
+
 	log.
 		WithField("version", version.String()).
 		WithField("namespace", namespace).
