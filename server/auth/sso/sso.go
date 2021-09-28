@@ -97,10 +97,11 @@ type providerFactory func(ctx context.Context, issuer string, issuerAlias string
 func providerFactoryOIDC(ctx context.Context, issuer string, issuerAlias string) (providerInterface, error) {
 	// Some offspec providers like Azure, Oracle IDCS have oidc discovery url different from issuer url which causes issuerValidation to fail
 	// This providerCtx will allow the Verifier to succeed if the alternate/alias URL is in the config
-	//@TODO: should we re-use here the same context from above or get a new background ctx?
-	providerCtx := context.Background()
+	var providerCtx context.Context
 	if issuerAlias != "" {
 		providerCtx = oidc.InsecureIssuerURLContext(ctx, issuerAlias)
+	} else {
+		providerCtx = ctx
 	}
 	return oidc.NewProvider(providerCtx, issuer)
 }
