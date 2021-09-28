@@ -63,6 +63,7 @@ func (s *sso) IsRBACEnabled() bool {
 
 type Config struct {
 	Issuer       string                  `json:"issuer"`
+	IssuerAlias  string                  `json:"issuerAlias,omitempty"`
 	ClientID     apiv1.SecretKeySelector `json:"clientId"`
 	ClientSecret apiv1.SecretKeySelector `json:"clientSecret"`
 	RedirectURL  string                  `json:"redirectUrl"`
@@ -91,10 +92,17 @@ type providerInterface interface {
 	Verifier(config *oidc.Config) *oidc.IDTokenVerifier
 }
 
-type providerFactory func(ctx context.Context, issuer string) (providerInterface, error)
+type providerFactory func(ctx context.Context, issuer string, issuerAlias string) (providerInterface, error)
 
-func providerFactoryOIDC(ctx context.Context, issuer string) (providerInterface, error) {
-	return oidc.NewProvider(ctx, issuer)
+func providerFactoryOIDC(ctx context.Context, issuer string, issuerAlias string) (providerInterface, error) {
+	// Some offspec providers like Azure, Oracle IDCS have oidc discovery url different from issuer url which causes issuerValidation to fail
+	// This providerCtx will allow the Verifier to succeed if the alternate/alias URL is in the config
+	//@TODO: should we re-use here the same context from above or get a new background ctx?
+	providerCtx := context.Background()
+	if issuerAlias != "" {
+		providerCtx = oidc.InsecureIssuerURLContext(ctx, issuerAlias)
+	}
+	return oidc.NewProvider(providerCtx, issuer)
 }
 
 func New(c Config, secretsIf corev1.SecretInterface, baseHRef string, secure bool) (Interface, error) {
@@ -122,7 +130,7 @@ func newSso(
 	if err != nil {
 		return nil, err
 	}
-	provider, err := factory(context.Background(), c.Issuer)
+	provider, err := factory(context.Background(), c.Issuer, c.IssuerAlias)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +187,7 @@ func newSso(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create JWT encrpytor: %w", err)
 	}
-	log.WithFields(log.Fields{"redirectUrl": config.RedirectURL, "issuer": c.Issuer, "clientId": c.ClientID, "scopes": config.Scopes}).Info("SSO configuration")
+	log.WithFields(log.Fields{"redirectUrl": config.RedirectURL, "issuer": c.Issuer, "issuerAlias": c.IssuerAlias, "clientId": c.ClientID, "scopes": config.Scopes}).Info("SSO configuration")
 	return &sso{
 		config:          config,
 		idTokenVerifier: idTokenVerifier,
@@ -245,6 +253,7 @@ func (s *sso) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := &types.Claims{}
+	//deserialzes into claims; might need the other url for issuer
 	if err := idToken.Claims(c); err != nil {
 		w.WriteHeader(401)
 		_, _ = w.Write([]byte(fmt.Sprintf("failed to get claims: %v", err)))

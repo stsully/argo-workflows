@@ -15,7 +15,11 @@ import (
 
 const testNamespace = "argo"
 
-type fakeOidcProvider struct{}
+type fakeOidcProvider struct {
+	Ctx         context.Context
+	Issuer      string
+	IssuerAlias string
+}
 
 func (fakeOidcProvider) Endpoint() oauth2.Endpoint {
 	return oauth2.Endpoint{}
@@ -25,8 +29,8 @@ func (fakeOidcProvider) Verifier(config *oidc.Config) *oidc.IDTokenVerifier {
 	return nil
 }
 
-func fakeOidcFactory(ctx context.Context, issuer string) (providerInterface, error) {
-	return fakeOidcProvider{}, nil
+func fakeOidcFactory(ctx context.Context, issuer string, issuerAlias string) (providerInterface, error) {
+	return fakeOidcProvider{ctx, issuer, issuerAlias}, nil
 }
 
 func getSecretKeySelector(secret, key string) apiv1.SecretKeySelector {
@@ -54,6 +58,7 @@ func TestLoadSsoClientIdFromSecret(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset(ssoConfigSecret).CoreV1().Secrets(testNamespace)
 	config := Config{
 		Issuer:               "https://test-issuer",
+		IssuerAlias:          "",
 		ClientID:             getSecretKeySelector("argo-sso-secret", "client-id"),
 		ClientSecret:         getSecretKeySelector("argo-sso-secret", "client-secret"),
 		RedirectURL:          "https://dummy",
@@ -65,10 +70,26 @@ func TestLoadSsoClientIdFromSecret(t *testing.T) {
 	assert.Equal(t, "sso-client-id-value", ssoObject.config.ClientID)
 	assert.Equal(t, "sso-client-secret-value", ssoObject.config.ClientSecret)
 	assert.Equal(t, "argo_groups", ssoObject.customClaimName)
-
+	assert.Equal(t, "", config.IssuerAlias)
 	assert.Equal(t, 10*time.Hour, ssoObject.expiry)
 }
 
+func TestNewSsoWithIssuerAlias(t *testing.T) {
+	// if there's an issuer alias present, the oidc provider will allow validation from either of the issuer or the issuerAlias.
+	fakeClient := fake.NewSimpleClientset(ssoConfigSecret).CoreV1().Secrets(testNamespace)
+	config := Config{
+		Issuer:               "https://test-issuer",
+		IssuerAlias:          "https://test-issuer-alias",
+		ClientID:             getSecretKeySelector("argo-sso-secret", "client-id"),
+		ClientSecret:         getSecretKeySelector("argo-sso-secret", "client-secret"),
+		RedirectURL:          "https://dummy",
+		CustomGroupClaimName: "argo_groups",
+	}
+	_, err := newSso(fakeOidcFactory, config, fakeClient, "/", false)
+	assert.NoError(t, err)
+	assert.Equal(t, "https://test-issuer-alias", config.IssuerAlias)
+
+}
 func TestLoadSsoClientIdFromDifferentSecret(t *testing.T) {
 	clientIDSecret := &apiv1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
