@@ -46,6 +46,7 @@ var _ Interface = &sso{}
 
 type sso struct {
 	config          *oauth2.Config
+	issuer          string
 	idTokenVerifier *oidc.IDTokenVerifier
 	baseHRef        string
 	secure          bool
@@ -130,7 +131,6 @@ func newSso(
 		providerCtx = oidc.InsecureIssuerURLContext(ctx, c.IssuerAlias)
 	}
 
-	//is this a new context because secretsIf takes/modifies the previous context created on line 121?
 	provider, err := factory(providerCtx, c.Issuer)
 	if err != nil {
 		return nil, err
@@ -200,6 +200,7 @@ func newSso(
 		expiry:          c.GetSessionExpiry(),
 		customClaimName: c.CustomGroupClaimName,
 		userInfoPath:    c.UserInfoPath,
+		issuer:          c.Issuer,
 	}, nil
 }
 
@@ -254,7 +255,6 @@ func (s *sso) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := &types.Claims{}
-	//deserialzes into claims; might need the other url for issuer
 	if err := idToken.Claims(c); err != nil {
 		w.WriteHeader(401)
 		_, _ = w.Write([]byte(fmt.Sprintf("failed to get claims: %v", err)))
@@ -276,7 +276,7 @@ func (s *sso) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	// Some SSO implementations (Okta) require a call to
 	// the OIDC user info path to get attributes like groups
 	if s.userInfoPath != "" {
-		groups, err = c.GetUserInfoGroups(oauth2Token.AccessToken, c.Issuer, s.userInfoPath)
+		groups, err = c.GetUserInfoGroups(oauth2Token.AccessToken, s.issuer, s.userInfoPath)
 		if err != nil {
 			w.WriteHeader(401)
 			_, _ = w.Write([]byte(fmt.Sprintf("failed to get groups claim: %v", err)))
