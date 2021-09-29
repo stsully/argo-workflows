@@ -55,6 +55,7 @@ type sso struct {
 	expiry          time.Duration
 	customClaimName string
 	userInfoPath    string
+	issuerAlias     string
 }
 
 func (s *sso) IsRBACEnabled() bool {
@@ -200,6 +201,7 @@ func newSso(
 		expiry:          c.GetSessionExpiry(),
 		customClaimName: c.CustomGroupClaimName,
 		userInfoPath:    c.UserInfoPath,
+		issuerAlias:     c.IssuerAlias,
 	}, nil
 }
 
@@ -276,7 +278,12 @@ func (s *sso) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	// Some SSO implementations (Okta) require a call to
 	// the OIDC user info path to get attributes like groups
 	if s.userInfoPath != "" {
-		groups, err = c.GetUserInfoGroups(oauth2Token.AccessToken, c.Issuer, s.userInfoPath)
+		// check if issuer is being overridden
+		issuerURL := c.Issuer
+		if s.issuerAlias != "" {
+			issuerURL = s.issuerAlias
+		}
+		groups, err = c.GetUserInfoGroups(oauth2Token.AccessToken, issuerURL, s.userInfoPath)
 		if err != nil {
 			w.WriteHeader(401)
 			_, _ = w.Write([]byte(fmt.Sprintf("failed to get groups claim: %v", err)))
