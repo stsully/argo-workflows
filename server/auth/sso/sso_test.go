@@ -2,6 +2,7 @@ package sso
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,9 +17,8 @@ import (
 const testNamespace = "argo"
 
 type fakeOidcProvider struct {
-	Ctx         context.Context
-	Issuer      string
-	IssuerAlias string
+	Ctx    context.Context
+	Issuer string
 }
 
 func (fakeOidcProvider) Endpoint() oauth2.Endpoint {
@@ -29,8 +29,8 @@ func (fakeOidcProvider) Verifier(config *oidc.Config) *oidc.IDTokenVerifier {
 	return nil
 }
 
-func fakeOidcFactory(ctx context.Context, issuer string, issuerAlias string) (providerInterface, error) {
-	return fakeOidcProvider{ctx, issuer, issuerAlias}, nil
+func fakeOidcFactory(ctx context.Context, issuer string) (providerInterface, error) {
+	return fakeOidcProvider{ctx, issuer}, nil
 }
 
 func getSecretKeySelector(secret, key string) apiv1.SecretKeySelector {
@@ -85,9 +85,10 @@ func TestNewSsoWithIssuerAlias(t *testing.T) {
 		RedirectURL:          "https://dummy",
 		CustomGroupClaimName: "argo_groups",
 	}
-	_, err := newSso(fakeOidcFactory, config, fakeClient, "/", false)
+	ssoInterface, err := newSso(fakeOidcFactory, config, fakeClient, "/", false)
 	assert.NoError(t, err)
-	assert.Equal(t, "https://test-issuer-alias", config.IssuerAlias)
+	ssoObject := ssoInterface.(*sso)
+	fmt.Printf("%+v", ssoObject)
 
 }
 func TestLoadSsoClientIdFromDifferentSecret(t *testing.T) {

@@ -92,18 +92,10 @@ type providerInterface interface {
 	Verifier(config *oidc.Config) *oidc.IDTokenVerifier
 }
 
-type providerFactory func(ctx context.Context, issuer string, issuerAlias string) (providerInterface, error)
+type providerFactory func(ctx context.Context, issuer string) (providerInterface, error)
 
-func providerFactoryOIDC(ctx context.Context, issuer string, issuerAlias string) (providerInterface, error) {
-	// Some offspec providers like Azure, Oracle IDCS have oidc discovery url different from issuer url which causes issuerValidation to fail
-	// This providerCtx will allow the Verifier to succeed if the alternate/alias URL is in the config
-	var providerCtx context.Context
-	if issuerAlias != "" {
-		providerCtx = oidc.InsecureIssuerURLContext(ctx, issuerAlias)
-	} else {
-		providerCtx = ctx
-	}
-	return oidc.NewProvider(providerCtx, issuer)
+func providerFactoryOIDC(ctx context.Context, issuer string) (providerInterface, error) {
+	return oidc.NewProvider(ctx, issuer)
 }
 
 func New(c Config, secretsIf corev1.SecretInterface, baseHRef string, secure bool) (Interface, error) {
@@ -131,7 +123,15 @@ func newSso(
 	if err != nil {
 		return nil, err
 	}
-	provider, err := factory(context.Background(), c.Issuer, c.IssuerAlias)
+	// Some offspec providers like Azure, Oracle IDCS have oidc discovery url different from issuer url which causes issuerValidation to fail
+	// This providerCtx will allow the Verifier to succeed if the alternate/alias URL is in the config
+	var providerCtx context.Context = context.Background()
+	if c.IssuerAlias != "" {
+		providerCtx = oidc.InsecureIssuerURLContext(ctx, c.IssuerAlias)
+	}
+
+	//is this a new context because secretsIf takes/modifies the previous context created on line 121?
+	provider, err := factory(providerCtx, c.Issuer)
 	if err != nil {
 		return nil, err
 	}
