@@ -56,6 +56,7 @@ type sso struct {
 	expiry          time.Duration
 	customClaimName string
 	userInfoPath    string
+	issuerAlias     string
 }
 
 func (s *sso) IsRBACEnabled() bool {
