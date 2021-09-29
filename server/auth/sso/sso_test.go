@@ -2,7 +2,6 @@ package sso
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -85,10 +84,10 @@ func TestNewSsoWithIssuerAlias(t *testing.T) {
 		RedirectURL:          "https://dummy",
 		CustomGroupClaimName: "argo_groups",
 	}
-	ssoInterface, err := newSso(fakeOidcFactory, config, fakeClient, "/", false)
+	_, err := newSso(fakeOidcFactory, config, fakeClient, "/", false)
 	assert.NoError(t, err)
-	ssoObject := ssoInterface.(*sso)
-	fmt.Printf("%+v", ssoObject)
+	// ssoObject := ssoInterface.(*sso)
+	// fmt.Printf("%+v", ssoObject)
 
 }
 func TestLoadSsoClientIdFromDifferentSecret(t *testing.T) {
